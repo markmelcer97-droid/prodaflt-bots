@@ -1,17 +1,20 @@
 #!/bin/bash
 set -e
 
-# PRODAFLT — Fly.io Entrypoint
+# PRODAFLT — Multi-process entrypoint
 # Starts all 3 services in parallel within one container
 
+PORT="${PORT:-8080}"
+
 echo "=========================================="
-echo "PRODAFLT Starting on Fly.io"
+echo "PRODAFLT Starting"
+echo "Port: $PORT"
 echo "=========================================="
 
 # Start FastAPI in background
-uvicorn prodaflt.api.app.main:app --host 0.0.0.0 --port 8080 &
+uvicorn prodaflt.api.app.main:app --host 0.0.0.0 --port $PORT &
 API_PID=$!
-echo "[+] FastAPI started (PID $API_PID)"
+echo "[+] FastAPI started on port $PORT (PID $API_PID)"
 
 # Start Parser Bot in background
 python -m prodaflt.bots.parser.bot &
@@ -28,10 +31,10 @@ check_services() {
     while true; do
         sleep 30
         # Check if API is responding
-        if ! curl -sf http://localhost:8080/health >/dev/null 2>&1; then
+        if ! curl -sf http://localhost:$PORT/health >/dev/null 2>&1; then
             echo "[!] API health check failed, restarting..."
             kill $API_PID 2>/dev/null || true
-            uvicorn prodaflt.api.app.main:app --host 0.0.0.0 --port 8080 &
+            uvicorn prodaflt.api.app.main:app --host 0.0.0.0 --port $PORT &
             API_PID=$!
         fi
         
