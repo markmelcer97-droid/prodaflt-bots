@@ -1,0 +1,20 @@
+# PRODAFLT Parser Bot — Dependencies
+# Install: pip install -r requirements.txt
+
+# Telegram Bot Framework
+python-telegram-bot[webhooks,job-queue]>=21.0
+
+# Async PostgreSQL
+asyncpg>=0.29.0
+
+# SQLAlchemy (async)
+SQLAlchemy[asyncio]>=2.0.0
+
+# HTTP client for link enrichment
+aiohttp>=3.9.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Optional: Sentry error tracking
+# sentry-sdk>=2.0.0

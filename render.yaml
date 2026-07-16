@@ -1,0 +1,42 @@
+# Render Blueprint for PRODAFLT
+# Deploy: https://dashboard.render.com/blueprint
+#
+# IMPORTANT:
+# - We use EXTERNAL Neon DB (not Render's), so no database section here.
+# - Set DATABASE_URL and all bot tokens in Render Dashboard > Environment.
+# - Render Free Web Service sleeps after 15 min idle (Kimi agents keep it awake via polling).
+
+services:
+  - type: web
+    name: prodaflt-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn prodaflt.api.app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: PROJECT_ENVIRONMENT
+        value: production
+      # DATABASE_URL must be set manually in Render Dashboard
+    healthCheckPath: /health
+
+  - type: worker
+    name: prodaflt-parser
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m prodaflt.bots.parser.bot
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+
+  - type: worker
+    name: prodaflt-alerts
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m prodaflt.bots.alert_engine.main
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0

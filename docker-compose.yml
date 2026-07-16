@@ -1,0 +1,130 @@
+# ============================================================
+# PRODAFLT — Local Development Compose
+# ============================================================
+# Services:
+#   api       — FastAPI web service
+#   postgres  — Local PostgreSQL (for dev without Neon)
+#   redis     — Cache + Celery broker
+#   worker    — Celery background workers
+#   scheduler — Celery beat (cron-like scheduling)
+#
+# Usage:
+#   docker-compose up -d
+#   docker-compose logs -f api
+#   docker-compose down -v
+# ============================================================
+
+version: "3.9"
+
+services:
+  # ---- PostgreSQL (local dev fallback) ----
+  postgres:
+    image: postgres:16-alpine
+    container_name: prodaflt_postgres
+    environment:
+      POSTGRES_USER: prodaflt
+      POSTGRES_PASSWORD: prodaflt_dev_password
+      POSTGRES_DB: prodaflt_registry
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prodaflt -d prodaflt_registry"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ---- Redis (cache + broker) ----
+  redis:
+    image: redis:7-alpine
+    container_name: prodaflt_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ---- FastAPI Web Service ----
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: prodaflt_api
+    command: ["api"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://prodaflt:prodaflt_dev_password@postgres:5432/prodaflt_registry
+      REDIS_URL: redis://redis:6379/0
+      API_RELOAD: "true"
+      API_DEBUG: "true"
+      LOG_FORMAT: plain
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./config:/app/config:ro
+      - ./api:/app/api:ro
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  # ---- Celery Worker ----
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: prodaflt_worker
+    command: ["worker"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://prodaflt:prodaflt_dev_password@postgres:5432/prodaflt_registry
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./config:/app/config:ro
+      - ./tasks:/app/tasks:ro
+    restart: unless-stopped
+
+  # ---- Celery Beat Scheduler ----
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: prodaflt_scheduler
+    command: ["scheduler"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://prodaflt:prodaflt_dev_password@postgres:5432/prodaflt_registry
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./config:/app/config:ro
+      - ./tasks:/app/tasks:ro
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

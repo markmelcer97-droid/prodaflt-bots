@@ -1,0 +1,20 @@
+# ============================================================
+# PRODAFLT — Development Dependencies
+# ============================================================
+-r requirements.txt
+
+# ---- Linting & Formatting ----
+black>=24.4.0
+ruff>=0.4.0
+mypy>=1.10.0
+
+# ---- Pre-commit hooks ----
+pre-commit>=3.7.0
+
+# ---- Debugging ----
+ipdb>=0.13.0
+rich>=13.7.0
+
+# ---- Type stubs ----
+types-python-jose>=3.3.0
+types-passlib>=1.7.0
